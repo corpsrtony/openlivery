@@ -33,12 +33,18 @@ class AgencyOut(ORMModel):
     slug: str
     brand_color: str
     logo_url: str | None = None
+    favicon_url: str | None = None
+    support_whatsapp: str = ""
+    social_links: dict[str, str] = Field(default_factory=dict)
 
 
 class AgencyUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=180)
     slug: str | None = Field(default=None, min_length=2, max_length=180)
     brand_color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+    # Digits only, country code included, no "+" or spaces.
+    support_whatsapp: str | None = Field(default=None, pattern=r"^$|^[0-9]{6,20}$")
+    social_links: dict[str, str] | None = None
 
 
 class UserOut(ORMModel):

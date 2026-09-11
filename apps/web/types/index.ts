@@ -6,7 +6,16 @@ export type User = {
   agency: Agency;
 };
 
-export type Agency = { id: string; name: string; slug: string; brand_color: string; logo_url: string | null };
+export type Agency = {
+  id: string;
+  name: string;
+  slug: string;
+  brand_color: string;
+  logo_url: string | null;
+  favicon_url: string | null;
+  support_whatsapp: string;
+  social_links: Record<string, string>;
+};
 
 export type AgentSummary = { id: string; name: string; is_active: boolean };
 

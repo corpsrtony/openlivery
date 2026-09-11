@@ -76,6 +76,20 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [isBare, pathname, router]);
 
+  // A custom favicon is per-agency branding, applied by swapping (or adding)
+  // the <link rel="icon"> tag once the agency is known. No custom favicon
+  // uploaded means the static default from app/favicon.ico stays in place.
+  useEffect(() => {
+    if (!user?.agency.favicon_url) return;
+    let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = user.agency.favicon_url;
+  }, [user?.agency.favicon_url]);
+
   async function logout() {
     await api("/auth/logout", { method: "POST" });
     // The shell lives in the root layout and survives client-side navigation, so

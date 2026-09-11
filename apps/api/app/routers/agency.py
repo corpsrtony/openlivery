@@ -75,3 +75,37 @@ def delete_logo(db: Session = Depends(get_db), user: User = Depends(get_current_
     user.agency.logo_mime = None
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/favicon", response_model=AgencyOut)
+async def upload_favicon(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if file.content_type not in ALLOWED_LOGO_TYPES:
+        raise HTTPException(status_code=400, detail="Use a PNG, JPG, WebP or SVG favicon")
+    data = await file.read(MAX_LOGO_BYTES + 1)
+    if len(data) > MAX_LOGO_BYTES:
+        raise HTTPException(status_code=413, detail="The favicon exceeds the 2 MB limit")
+    user.agency.favicon_data = data
+    user.agency.favicon_mime = file.content_type
+    db.commit()
+    db.refresh(user.agency)
+    return user.agency
+
+
+@router.get("/favicon")
+def get_favicon(user: User = Depends(get_current_user)):
+    agency = user.agency
+    if not agency.favicon_data or not agency.favicon_mime:
+        raise HTTPException(status_code=404, detail="The agency does not have a favicon yet")
+    return Response(content=agency.favicon_data, media_type=agency.favicon_mime, headers={"Cache-Control": "no-store"})
+
+
+@router.delete("/favicon", status_code=status.HTTP_204_NO_CONTENT)
+def delete_favicon(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    user.agency.favicon_data = None
+    user.agency.favicon_mime = None
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

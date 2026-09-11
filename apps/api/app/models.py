@@ -33,6 +33,14 @@ class Agency(Base):
     brand_color: Mapped[str] = mapped_column(String(20), default="#075985")
     logo_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     logo_mime: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    favicon_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    favicon_mime: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # WhatsApp number for the agency's own support line (digits only, no + or
+    # spaces), shown to end clients who need help with the platform itself.
+    support_whatsapp: Mapped[str] = mapped_column(String(30), default="", server_default="")
+    # Arbitrary platform -> URL pairs (facebook, instagram, tiktok, x,
+    # youtube, website, ...), shown wherever the agency's own branding is.
+    social_links: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     users: Mapped[list["User"]] = relationship(back_populates="agency", cascade="all, delete-orphan")
@@ -40,6 +48,10 @@ class Agency(Base):
     @property
     def logo_url(self) -> str | None:
         return f"/api/agency/logo?v={int(self.created_at.timestamp())}" if self.logo_data else None
+
+    @property
+    def favicon_url(self) -> str | None:
+        return f"/api/agency/favicon?v={int(self.created_at.timestamp())}" if self.favicon_data else None
 
 
 class User(Base):
