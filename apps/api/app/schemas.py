@@ -176,7 +176,7 @@ class AgentBase(BaseModel):
     brief_dos: str = ""
     brief_donts: str = ""
     model: str = ""
-    provider: str = Field(default="openai", pattern=r"^(openai|anthropic)$")
+    provider: str = Field(default="openai", pattern=r"^(openai|anthropic|google)$")
     timezone: str = Field(default="UTC", max_length=64)
     prompt_language: str = Field(default="es", pattern=r"^(en|es)$")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
@@ -212,7 +212,7 @@ class AgentUpdate(BaseModel):
     brief_dos: str | None = None
     brief_donts: str | None = None
     model: str | None = None
-    provider: str | None = Field(default=None, pattern=r"^(openai|anthropic)$")
+    provider: str | None = Field(default=None, pattern=r"^(openai|anthropic|google)$")
     timezone: str | None = Field(default=None, max_length=64)
     prompt_language: str | None = Field(default=None, pattern=r"^(en|es)$")
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
@@ -754,6 +754,7 @@ class WhatsAppChannelOut(ORMModel):
     phone_number: str | None
     display_name: str | None
     qr_code: str | None = None
+    pairing_code: str | None = None
     last_error: str | None
     is_enabled: bool
     has_session: bool = False
@@ -762,15 +763,21 @@ class WhatsAppChannelOut(ORMModel):
     updated_at: datetime
 
 
+class WhatsAppConnectRequest(BaseModel):
+    # Digits only, country code included, no "+" or spaces (e.g. "5215512345678").
+    phone_number: str | None = Field(default=None, pattern=r"^[0-9]{6,20}$")
+
+
 class WhatsAppInternalAuth(BaseModel):
     auth_state: dict
 
 
 class WhatsAppInternalStatus(BaseModel):
-    status: str = Field(pattern=r"^(disconnected|connecting|qr|connected|reconnecting|error)$")
+    status: str = Field(pattern=r"^(disconnected|connecting|qr|pairing|connected|reconnecting|error)$")
     phone_number: str | None = None
     display_name: str | None = None
     qr_code: str | None = None
+    pairing_code: str | None = None
     error: str | None = None
 
 

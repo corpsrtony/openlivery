@@ -244,6 +244,7 @@ class WhatsAppChannel(Base):
     display_name: Mapped[str | None] = mapped_column(String(180), nullable=True)
     encrypted_auth_state: Mapped[str | None] = mapped_column(Text, nullable=True)
     encrypted_qr: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pairing_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     last_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

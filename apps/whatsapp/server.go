@@ -19,7 +19,7 @@ var channelRoute = regexp.MustCompile(`(?i)^/channels/([0-9a-f-]+)/(connect|disc
 // channelActions is what the HTTP layer needs from the manager; the tests
 // substitute a fake.
 type channelActions interface {
-	connect(ctx context.Context, channelID string) error
+	connect(ctx context.Context, channelID, phoneNumber string) error
 	disconnect(ctx context.Context, channelID string) error
 	send(ctx context.Context, channelID, remoteJID, text string, media *outboundMedia, quoteExternalID string) (string, error)
 	read(ctx context.Context, channelID, remoteJID string, messageIDs []string, typing bool) error
@@ -28,8 +28,8 @@ type channelActions interface {
 
 type managerActions struct{ manager *manager }
 
-func (a managerActions) connect(ctx context.Context, channelID string) error {
-	return a.manager.connectChannel(ctx, channelID)
+func (a managerActions) connect(ctx context.Context, channelID, phoneNumber string) error {
+	return a.manager.connectChannel(ctx, channelID, phoneNumber)
 }
 
 func (a managerActions) disconnect(ctx context.Context, channelID string) error {
@@ -70,6 +70,10 @@ type reactPayload struct {
 	ExternalMessageID string `json:"external_message_id"`
 	Emoji             string `json:"emoji"`
 	TargetFromMe      bool   `json:"target_from_me"`
+}
+
+type connectPayload struct {
+	PhoneNumber string `json:"phone_number"`
 }
 
 // parseSendPayload validates the /send body the same way the previous bridge
@@ -127,7 +131,16 @@ func newHandler(actions channelActions, bridgeToken string) http.Handler {
 		channelID, action := match[1], strings.ToLower(match[2])
 		switch action {
 		case "connect":
-			if err := actions.connect(r.Context(), channelID); err != nil {
+			var payload connectPayload
+			// The body is optional: no body (or an empty one) means QR pairing.
+			raw, _ := io.ReadAll(http.MaxBytesReader(w, r.Body, 4096))
+			if len(raw) > 0 {
+				if err := json.Unmarshal(raw, &payload); err != nil {
+					writeJSON(w, http.StatusBadRequest, map[string]any{"error": "Invalid connect request"})
+					return
+				}
+			}
+			if err := actions.connect(r.Context(), channelID, payload.PhoneNumber); err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 				return
 			}

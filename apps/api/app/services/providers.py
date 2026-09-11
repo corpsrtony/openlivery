@@ -10,6 +10,7 @@ from ..security import decrypt_secret
 PROVIDERS: dict[str, dict[str, str]] = {
     "openai": {"label": "OpenAI", "base_url": "https://api.openai.com/v1"},
     "anthropic": {"label": "Anthropic", "base_url": "https://api.anthropic.com/v1"},
+    "google": {"label": "Google Gemini", "base_url": "https://generativelanguage.googleapis.com/v1beta"},
 }
 SUPPORTED = tuple(PROVIDERS)
 

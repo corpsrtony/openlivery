@@ -49,6 +49,18 @@ export const PROVIDERS = [
       { id: "claude-opus-4-8", label: "Claude Opus 4.8", group: "capable" },
     ] as const satisfies readonly ModelOption[],
   },
+  {
+    id: "google",
+    label: "Google Gemini",
+    keyPlaceholder: "AIzaSy...",
+    keyUrl: "https://aistudio.google.com/apikey",
+    models: [
+      { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash", group: "fast", recommended: true },
+      { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash", group: "fast" },
+      { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash-Lite", group: "fast" },
+      { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview", group: "capable" },
+    ] as const satisfies readonly ModelOption[],
+  },
 ] as const;
 
 export type ProviderId = (typeof PROVIDERS)[number]["id"];
@@ -96,5 +108,6 @@ export function modelContextWindow(id: string): number {
   if (id.startsWith("gpt-4.1")) return 1_000_000;
   if (id.startsWith("gpt-5.6") || id.startsWith("gpt-5.5")) return 1_000_000;
   if (id.startsWith("gpt-5")) return 400_000;
+  if (id.startsWith("gemini")) return 1_000_000;
   return 128_000;
 }

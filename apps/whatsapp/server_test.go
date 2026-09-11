@@ -10,22 +10,24 @@ import (
 )
 
 type fakeActions struct {
-	connected    []string
-	disconnected []string
-	sentChannel  string
-	sentJID      string
-	sentText     string
-	sentMedia    *outboundMedia
-	sentQuote    string
-	readIDs      []string
-	readTyping   bool
-	reactedID    string
-	reactedEmoji string
-	reactedOwn   bool
+	connected     []string
+	connectedPhon []string
+	disconnected  []string
+	sentChannel   string
+	sentJID       string
+	sentText      string
+	sentMedia     *outboundMedia
+	sentQuote     string
+	readIDs       []string
+	readTyping    bool
+	reactedID     string
+	reactedEmoji  string
+	reactedOwn    bool
 }
 
-func (f *fakeActions) connect(_ context.Context, channelID string) error {
+func (f *fakeActions) connect(_ context.Context, channelID, phoneNumber string) error {
 	f.connected = append(f.connected, channelID)
+	f.connectedPhon = append(f.connectedPhon, phoneNumber)
 	return nil
 }
 

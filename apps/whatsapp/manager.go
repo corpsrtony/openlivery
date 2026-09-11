@@ -111,9 +111,10 @@ func (m *manager) runtime(channelID string) *channelRuntime {
 }
 
 // connectChannel is idempotent: a channel that is already running is left
-// alone. Fresh devices go through the QR pairing flow; known devices reconnect
-// without user interaction.
-func (m *manager) connectChannel(ctx context.Context, channelID string) error {
+// alone. Fresh devices go through the QR pairing flow (or, when phoneNumber
+// is given, a phone-linking code); known devices reconnect without user
+// interaction.
+func (m *manager) connectChannel(ctx context.Context, channelID, phoneNumber string) error {
 	m.mu.Lock()
 	if current, ok := m.runtimes[channelID]; ok && !current.stopped() {
 		m.mu.Unlock()
@@ -155,7 +156,11 @@ func (m *manager) connectChannel(ctx context.Context, channelID string) error {
 			m.dropRuntime(runtime)
 			return err
 		}
-		go m.pumpQR(runtime, qrChan)
+		if phoneNumber != "" {
+			go m.pumpPairingCode(runtime, qrChan, phoneNumber)
+		} else {
+			go m.pumpQR(runtime, qrChan)
+		}
 		return nil
 	}
 	if err := client.Connect(); err != nil {
@@ -207,6 +212,47 @@ func (m *manager) pumpQR(runtime *channelRuntime, qrChan <-chan whatsmeow.QRChan
 			runtime.client.Disconnect()
 			if err := m.api.call(ctx, http.MethodDelete, "/channels/"+runtime.channelID+"/auth", nil, nil, 0); err != nil {
 				m.log.Errorf("channel %s: could not reset after QR timeout: %v", runtime.channelID, err)
+			}
+			return
+		default:
+			m.statusOrLog(ctx, runtime.channelID, "error", map[string]any{"error": truncate("Pairing failed: "+evt.Event, 500)})
+		}
+	}
+}
+
+// pumpPairingCode is the phone-number alternative to pumpQR: it still needs to
+// drain the QR channel (whatsmeow always produces one), but on the first code
+// it requests a phone-linking code instead of rendering a QR image, and shows
+// that to the user via the "pairing" status.
+func (m *manager) pumpPairingCode(runtime *channelRuntime, qrChan <-chan whatsmeow.QRChannelItem, phoneNumber string) {
+	ctx := context.Background()
+	requested := false
+	for evt := range qrChan {
+		if runtime.stopped() {
+			return
+		}
+		switch evt.Event {
+		case "code":
+			if requested {
+				continue
+			}
+			requested = true
+			code, err := runtime.client.PairPhone(ctx, phoneNumber, true, whatsmeow.PairClientChrome, "OpenLivery (Chrome)")
+			if err != nil {
+				m.log.Errorf("channel %s: could not request a pairing code: %v", runtime.channelID, err)
+				m.statusOrLog(ctx, runtime.channelID, "error", map[string]any{"error": truncate("Could not generate a pairing code: "+err.Error(), 500)})
+				continue
+			}
+			m.statusOrLog(ctx, runtime.channelID, "pairing", map[string]any{"pairing_code": code})
+		case "success":
+			m.statusOrLog(ctx, runtime.channelID, "connecting", nil)
+		case "timeout":
+			// Nobody entered the code in time: release the runtime and reset
+			// the channel so the portal shows a clean disconnected state.
+			m.dropRuntime(runtime)
+			runtime.client.Disconnect()
+			if err := m.api.call(ctx, http.MethodDelete, "/channels/"+runtime.channelID+"/auth", nil, nil, 0); err != nil {
+				m.log.Errorf("channel %s: could not reset after pairing timeout: %v", runtime.channelID, err)
 			}
 			return
 		default:
@@ -625,7 +671,7 @@ func (m *manager) restoreChannels(ctx context.Context) error {
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
-			if err := m.connectChannel(ctx, id); err != nil {
+			if err := m.connectChannel(ctx, id, ""); err != nil {
 				m.log.Errorf("channel %s: could not restore: %v", id, err)
 			}
 		}(channel.ID)

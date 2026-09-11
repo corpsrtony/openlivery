@@ -16,6 +16,7 @@ from ..models import Agent, Client, Conversation, Message, User, WhatsAppChannel
 from ..schemas import (
     WhatsAppChannelOut,
     WhatsAppChannelUpdate,
+    WhatsAppConnectRequest,
     WhatsAppInbound,
     WhatsAppInboundReaction,
     WhatsAppInboundResult,
@@ -54,6 +55,7 @@ def _public_channel(channel: WhatsAppChannel) -> dict:
         "phone_number": channel.phone_number,
         "display_name": channel.display_name,
         "qr_code": qr_code,
+        "pairing_code": channel.pairing_code,
         "last_error": channel.last_error,
         "is_enabled": channel.is_enabled,
         "has_session": bool(channel.encrypted_auth_state),
@@ -118,14 +120,21 @@ def configure_channel(
 
 
 @router.post("/channels/{client_id}/connect", response_model=WhatsAppChannelOut)
-async def connect_channel(client_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+async def connect_channel(
+    client_id: uuid.UUID,
+    payload: WhatsAppConnectRequest = WhatsAppConnectRequest(),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     channel = _channel_for_user(db, user, client_id)
     channel.status = "connecting"
     channel.last_error = None
+    channel.pairing_code = None
     channel.is_enabled = True
     db.commit()
     try:
-        await bridge_command("POST", f"/channels/{channel.id}/connect")
+        body = {"phone_number": payload.phone_number} if payload.phone_number else None
+        await bridge_command("POST", f"/channels/{channel.id}/connect", body)
     except HTTPException as exc:
         channel.status = "error"
         channel.last_error = exc.detail
@@ -180,6 +189,7 @@ def clear_auth(channel_id: uuid.UUID, db: Session = Depends(get_db)):
     channel = _internal_channel(db, channel_id)
     channel.encrypted_auth_state = None
     channel.encrypted_qr = None
+    channel.pairing_code = None
     channel.phone_number = None
     channel.display_name = None
     channel.status = "disconnected"
@@ -201,6 +211,10 @@ def update_status(channel_id: uuid.UUID, payload: WhatsAppInternalStatus, db: Se
         channel.encrypted_qr = encrypt_secret(payload.qr_code)
     elif payload.status in {"connected", "disconnected", "error"}:
         channel.encrypted_qr = None
+    if payload.pairing_code:
+        channel.pairing_code = payload.pairing_code
+    elif payload.status in {"connected", "disconnected", "error"}:
+        channel.pairing_code = None
     channel.last_error = payload.error
     if payload.status == "connected":
         channel.last_connected_at = now_utc()

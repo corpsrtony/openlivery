@@ -8,7 +8,7 @@ them through the plain-completion text extractors until the loop ends.
 
 import json
 
-from ..ai import ANTHROPIC_VERSION, Completion, _post_json, extract_openai_text
+from ..ai import ANTHROPIC_VERSION, Completion, _post_json, extract_openai_text, gemini_contents
 from .http_exec import execute_http_tool
 from .mcp_client import call_mcp_tool
 from .specs import ToolSpec, find_spec
@@ -80,6 +80,59 @@ async def anthropic_tool_loop(
             _record(metadata, block.get("name", ""), args, result, is_error)
             results.append({"type": "tool_result", "tool_use_id": block.get("id"), "content": result, "is_error": is_error})
         convo.append({"role": "user", "content": results})
+    raise ValueError("tool loop did not converge")
+
+
+async def gemini_tool_loop(
+    base_url: str, api_key: str, model: str, messages: list[dict], specs: list[ToolSpec],
+    temperature: float | None, max_tokens: int | None,
+) -> Completion:
+    url = f"{base_url.rstrip('/')}/models/{model}:generateContent"
+    headers = {"x-goog-api-key": api_key, "Content-Type": "application/json"}
+    contents, system_instruction = gemini_contents(messages)
+    tools = [{"functionDeclarations": [
+        {"name": s.name, "description": s.description, "parameters": s.input_schema} for s in specs
+    ]}]
+    generation_config: dict = {} if temperature is None else {"temperature": temperature}
+    if max_tokens is not None:
+        generation_config["maxOutputTokens"] = max_tokens
+    sampling = {"generationConfig": generation_config} if generation_config else {}
+    input_tokens = output_tokens = 0
+    metadata: list[dict] = []
+
+    for iteration in range(MAX_TOOL_ITERATIONS + 1):
+        payload: dict = {"contents": contents, "tools": tools}
+        if system_instruction:
+            payload["systemInstruction"] = system_instruction
+        if iteration == MAX_TOOL_ITERATIONS:
+            # Cap reached: keep the tool declarations (Gemini requires them to
+            # stay if earlier turns contain functionCall parts) but force text.
+            payload["toolConfig"] = {"functionCallingConfig": {"mode": "NONE"}}
+        data = await _post_json(url, headers, payload, sampling)
+        usage = data.get("usageMetadata") or {}
+        input_tokens += int(usage.get("promptTokenCount") or 0)
+        output_tokens += int(usage.get("candidatesTokenCount") or 0)
+        candidates = data.get("candidates") or []
+        parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+        calls = [part.get("functionCall") for part in parts if "functionCall" in part]
+        if not calls:
+            text = "".join(part.get("text", "") for part in parts if "text" in part).strip()
+            if not text:
+                raise ValueError("empty response")
+            return Completion(text, input_tokens, output_tokens, tool_calls=metadata or None)
+        contents.append({"role": "model", "parts": parts})
+        response_parts = []
+        for call in calls:
+            name = call.get("name", "")
+            args = call.get("args") or {}
+            spec = find_spec(specs, name)
+            if spec is None:
+                result, is_error = f"Error: unknown tool '{name}'", True
+            else:
+                result, is_error = await _execute(spec, args)
+            _record(metadata, name, args, result, is_error)
+            response_parts.append({"functionResponse": {"name": name, "response": {"result": result, "is_error": is_error}}})
+        contents.append({"role": "user", "parts": response_parts})
     raise ValueError("tool loop did not converge")
 
 

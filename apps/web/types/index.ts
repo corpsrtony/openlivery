@@ -195,10 +195,11 @@ export type WhatsAppChannel = {
   id: string;
   client_id: string;
   agent_id: string;
-  status: "disconnected" | "connecting" | "qr" | "connected" | "reconnecting" | "error";
+  status: "disconnected" | "connecting" | "qr" | "pairing" | "connected" | "reconnecting" | "error";
   phone_number: string | null;
   display_name: string | null;
   qr_code: string | null;
+  pairing_code: string | null;
   last_error: string | null;
   is_enabled: boolean;
   has_session: boolean;
