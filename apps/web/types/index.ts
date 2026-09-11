@@ -249,6 +249,22 @@ export type WhatsAppCloudChannel = {
   updated_at: string;
 };
 
+export type TelegramChannel = {
+  id: string;
+  client_id: string;
+  agent_id: string;
+  status: "disconnected" | "connected" | "error";
+  bot_username: string | null;
+  display_name: string | null;
+  has_bot_token: boolean;
+  webhook_url: string;
+  last_error: string | null;
+  is_enabled: boolean;
+  last_connected_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Template = {
   id: string | null;
   name: string;

@@ -166,6 +166,9 @@ async def process_inbound(
             contact = resolve_contact(db, channel.client_id, provider=conversation_channel,
                 external_account_id=channel.external_account_id, external_user_id=inbound.external_chat_id,
                 name=inbound.sender_name)
+        elif conversation_channel == "telegram":
+            contact = resolve_contact(db, channel.client_id, provider="telegram",
+                external_user_id=inbound.external_chat_id, name=inbound.sender_name)
         elif conversation_channel != "whatsapp_cloud":
             phone = phone_from_chat_id(inbound.external_chat_id)
             contact = resolve_contact(db, channel.client_id, phone=phone, name=inbound.sender_name) if phone else None
@@ -207,7 +210,7 @@ async def process_inbound(
         content=display_content,
         llm_content=llm_content if llm_content != display_content else None,
         sender_type="visitor",
-        sender_name=inbound.sender_name or ("Contact" if conversation_channel in ("instagram", "messenger") else "WhatsApp contact"),
+        sender_name=inbound.sender_name or ("Contact" if conversation_channel in ("instagram", "messenger", "telegram") else "WhatsApp contact"),
         external_message_id=inbound.external_message_id,
         **({"created_at": inbound.occurred_at} if inbound.occurred_at else {}),
     )

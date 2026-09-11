@@ -28,6 +28,15 @@ const en = {
     configure: "Configure",
     selectClient: "Select a client",
   },
+  telegram: {
+    status: "Available",
+    title: "Telegram",
+    description:
+      "Connect a Telegram bot in minutes with a token from @BotFather. No phone number needed, and no risk of a ban.",
+    ownerPlaceholder: "Choose a client to configure its bot",
+    configure: "Configure",
+    selectClient: "Select a client",
+  },
   webchat: {
     status: "Available",
     title: "Webchat",
@@ -79,6 +88,15 @@ const es: typeof en = {
     description:
       "Escanea un QR con la app de WhatsApp de tu teléfono y responde con un agente en minutos. Es gratis e instantáneo de configurar, así que es ideal para demos y pruebas. Para producción usa mejor WhatsApp API.",
     ownerPlaceholder: "Elige un cliente para configurar su número",
+    configure: "Configurar",
+    selectClient: "Selecciona un cliente",
+  },
+  telegram: {
+    status: "Disponible",
+    title: "Telegram",
+    description:
+      "Conecta un bot de Telegram en minutos con un token de @BotFather. No necesita número de teléfono, y no hay riesgo de baneo.",
+    ownerPlaceholder: "Elige un cliente para configurar su bot",
     configure: "Configurar",
     selectClient: "Selecciona un cliente",
   },

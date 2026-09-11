@@ -25,6 +25,8 @@ from .routers import (
     whatsapp,
     whatsapp_cloud,
     whatsapp_cloud_webhook,
+    telegram,
+    telegram_webhook,
     widget,
     webchat,
     social,
@@ -113,6 +115,8 @@ app.include_router(whatsapp.router, prefix="/api")
 app.include_router(whatsapp.internal_router, prefix="/api")
 app.include_router(whatsapp_cloud.router, prefix="/api")
 app.include_router(whatsapp_cloud_webhook.public_router, prefix="/api")
+app.include_router(telegram.router, prefix="/api")
+app.include_router(telegram_webhook.public_router, prefix="/api")
 app.include_router(widget.router, prefix="/api")
 app.include_router(domains.public_router, prefix="/api")
 app.include_router(social.router, prefix="/api")

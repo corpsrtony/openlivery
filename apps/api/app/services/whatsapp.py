@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from ..config import get_settings
-from ..models import Conversation, Message, WhatsAppCloudChannel
+from ..models import Conversation, Message, TelegramChannel, WhatsAppCloudChannel
 from ..security import decrypt_secret
 from .audio import audio_duration_seconds, to_whatsapp_voice
+from .telegram import send_text as telegram_send_text
 from .whatsapp_cloud import mark_read, mark_read_with_typing, send_media, send_reaction, send_text, upload_media
 from .whatsapp_format import markdown_to_whatsapp
 
@@ -75,6 +76,18 @@ async def send_channel_message(
             conversation.external_chat_id,
             markdown_to_whatsapp(content),
             context_message_id=quoted_external_id,
+        )
+    if conversation.channel == "telegram":
+        if not conversation.telegram_channel_id or not conversation.external_chat_id:
+            raise HTTPException(status_code=409, detail="This conversation does not have a valid Telegram destination")
+        channel = db.get(TelegramChannel, conversation.telegram_channel_id)
+        if not channel or not channel.encrypted_bot_token:
+            raise HTTPException(status_code=409, detail="The Telegram channel is not configured")
+        return await telegram_send_text(
+            decrypt_secret(channel.encrypted_bot_token),
+            conversation.external_chat_id,
+            content,
+            reply_to_message_id=quoted_external_id,
         )
     return None
 

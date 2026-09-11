@@ -92,6 +92,9 @@ class Client(Base):
     whatsapp_cloud_channel: Mapped["WhatsAppCloudChannel | None"] = relationship(
         back_populates="client", cascade="all, delete-orphan", uselist=False
     )
+    telegram_channel: Mapped["TelegramChannel | None"] = relationship(
+        back_populates="client", cascade="all, delete-orphan", uselist=False
+    )
     widget_channel: Mapped["WidgetChannel | None"] = relationship(
         back_populates="client", cascade="all, delete-orphan", uselist=False
     )
@@ -193,6 +196,7 @@ class Agent(Base):
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="agent", cascade="all, delete-orphan")
     whatsapp_channels: Mapped[list["WhatsAppChannel"]] = relationship(back_populates="agent")
     whatsapp_cloud_channels: Mapped[list["WhatsAppCloudChannel"]] = relationship(back_populates="agent")
+    telegram_channels: Mapped[list["TelegramChannel"]] = relationship(back_populates="agent")
     widget_channels: Mapped[list["WidgetChannel"]] = relationship(back_populates="agent")
     tools: Mapped[list["AgentTool"]] = relationship(back_populates="agent", cascade="all, delete-orphan", order_by="AgentTool.created_at")
 
@@ -289,6 +293,36 @@ class WhatsAppCloudChannel(Base):
     client: Mapped[Client] = relationship(back_populates="whatsapp_cloud_channel")
     agent: Mapped[Agent] = relationship(back_populates="whatsapp_cloud_channels")
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="whatsapp_cloud_channel")
+
+
+class TelegramChannel(Base):
+    """A client's Telegram bot (Bot API, webhook-based). One bot per client,
+    created by the client themselves via @BotFather; only the token is
+    provided here, same bring-your-own-credential model as WhatsApp Cloud."""
+
+    __tablename__ = "telegram_channels"
+    __table_args__ = (UniqueConstraint("client_id", name="uq_telegram_channels_client_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_uuid)
+    agency_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agencies.id", ondelete="CASCADE"), index=True)
+    client_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
+    agent_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agents.id", ondelete="RESTRICT"), index=True)
+    status: Mapped[str] = mapped_column(String(30), default="disconnected")
+    bot_username: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    encrypted_bot_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Telegram echoes this back on every webhook call (X-Telegram-Bot-Api-Secret-Token),
+    # so it doubles as the webhook's auth check; no signature math needed.
+    webhook_secret: Mapped[str] = mapped_column(String(64), default=new_public_id, server_default="")
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+    client: Mapped[Client] = relationship(back_populates="telegram_channel")
+    agent: Mapped[Agent] = relationship(back_populates="telegram_channels")
+    conversations: Mapped[list["Conversation"]] = relationship(back_populates="telegram_channel")
 
 
 class WhatsAppCoexistenceEvent(Base):
@@ -432,6 +466,7 @@ class Conversation(Base):
     __table_args__ = (
         Index("ix_conversations_whatsapp_chat", "whatsapp_channel_id", "external_chat_id"),
         Index("ix_conversations_whatsapp_cloud_chat", "whatsapp_cloud_channel_id", "external_chat_id"),
+        Index("ix_conversations_telegram_chat", "telegram_channel_id", "external_chat_id"),
         Index("ix_conversations_social_chat", "social_channel_id", "external_chat_id"),
     )
 
@@ -455,6 +490,9 @@ class Conversation(Base):
     )
     whatsapp_cloud_channel_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("whatsapp_cloud_channels.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    telegram_channel_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("telegram_channels.id", ondelete="CASCADE"), nullable=True, index=True
     )
     widget_channel_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("widget_channels.id", ondelete="CASCADE"), nullable=True, index=True
@@ -505,6 +543,7 @@ class Conversation(Base):
         return self.team.name if self.team else None
     whatsapp_channel: Mapped[WhatsAppChannel | None] = relationship(back_populates="conversations")
     whatsapp_cloud_channel: Mapped[WhatsAppCloudChannel | None] = relationship(back_populates="conversations")
+    telegram_channel: Mapped["TelegramChannel | None"] = relationship(back_populates="conversations")
     widget_channel: Mapped["WidgetChannel | None"] = relationship(back_populates="conversations")
     social_channel: Mapped["SocialChannel | None"] = relationship()
     messages: Mapped[list["Message"]] = relationship(back_populates="conversation", cascade="all, delete-orphan", order_by="Message.created_at")
