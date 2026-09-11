@@ -306,7 +306,7 @@ const en = {
     disconnect: "Disconnect bot",
     confirmDisconnect: "Disconnect this bot? Incoming messages will be ignored until you connect it again.",
     howItWorksTitle: "How it works",
-    howItWorksCopy: "OpenLivery registers the webhook with Telegram automatically once you connect; there is nothing to configure on Telegram's side.",
+    howItWorksCopy: "Open WS registers the webhook with Telegram automatically once you connect; there is nothing to configure on Telegram's side.",
   },
 };
 
@@ -617,7 +617,7 @@ const es: typeof en = {
     disconnect: "Desconectar bot",
     confirmDisconnect: "¿Desconectar este bot? Los mensajes entrantes se ignorarán hasta que lo conectes de nuevo.",
     howItWorksTitle: "Cómo funciona",
-    howItWorksCopy: "OpenLivery registra el webhook con Telegram automáticamente al conectar; no hay nada que configurar del lado de Telegram.",
+    howItWorksCopy: "Open WS registra el webhook con Telegram automáticamente al conectar; no hay nada que configurar del lado de Telegram.",
   },
 };
 

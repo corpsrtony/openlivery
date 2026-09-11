@@ -2,7 +2,7 @@
 const en = {
   index: {
     loading: "Loading settings…",
-    eyebrow: "White label",
+    eyebrow: "Agency",
     title: "Settings",
     description: "Customize the agency and manage your AI provider keys.",
     agencySaved: "Agency settings saved.",
@@ -58,7 +58,7 @@ const en = {
 const es: typeof en = {
   index: {
     loading: "Cargando configuración…",
-    eyebrow: "Marca blanca",
+    eyebrow: "Agencia",
     title: "Configuración",
     description: "Personaliza la agencia y administra las claves de tus proveedores de IA.",
     agencySaved: "Configuración de la agencia guardada.",
