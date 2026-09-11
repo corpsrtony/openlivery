@@ -21,7 +21,10 @@ export default function AccountPage() {
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const currentPasswordInput = form.elements.namedItem("current_password") as HTMLInputElement;
+    const newPasswordInput = form.elements.namedItem("new_password") as HTMLInputElement;
     const currentPassword = String(data.get("current_password") || "");
     const newPassword = String(data.get("new_password") || "");
     if (!currentPassword) { toast.error(t("account.needsCurrentPassword")); return; }
@@ -37,8 +40,8 @@ export default function AccountPage() {
         }),
       });
       setUser(updated);
-      (event.currentTarget.elements.namedItem("current_password") as HTMLInputElement).value = "";
-      (event.currentTarget.elements.namedItem("new_password") as HTMLInputElement).value = "";
+      currentPasswordInput.value = "";
+      newPasswordInput.value = "";
       toast.success(t("account.saved"));
     } catch (err) { toast.error(messageFrom(err)); } finally { setBusy(false); }
   }
