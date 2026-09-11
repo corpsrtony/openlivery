@@ -233,7 +233,12 @@ def update_status(channel_id: uuid.UUID, payload: WhatsAppInternalStatus, db: Se
 def human_outbound(channel_id: uuid.UUID, payload: WhatsAppHumanOutbound, db: Session = Depends(get_db)):
     """A staff member replied directly from the linked phone (not through the
     panel or the API): pause the AI for that conversation, same as a portal
-    takeover, and log the reply so it shows up in the thread."""
+    takeover, and log the reply so it shows up in the thread.
+
+    Exception: the "/ia" control word hands the conversation back to the AI
+    instead, the same as "Return to AI" on the portal. It is never stored as
+    a message, but the customer still sees it: there is no side channel, the
+    phone sends everything typed in the chat straight to WhatsApp."""
     channel = _internal_channel(db, channel_id)
     conversation = db.scalar(
         select(Conversation)
@@ -246,6 +251,11 @@ def human_outbound(channel_id: uuid.UUID, payload: WhatsAppHumanOutbound, db: Se
         .limit(1)
     )
     if not conversation:
+        return
+    if payload.text.strip().lower() == "/ia":
+        set_mode(db, conversation, "ai", actor="WhatsApp")
+        conversation.updated_at = now_utc()
+        db.commit()
         return
     set_mode(db, conversation, "human", actor="WhatsApp")
     if payload.text.strip():
