@@ -15,10 +15,11 @@ const messageCacheSize = 500
 // the raw proto (for a faithful quoted preview) and the original addressing
 // (LID chats keep their LID here even when the backend sees the phone JID).
 type cachedMessage struct {
-	raw    *waE2E.Message
-	chat   types.JID
-	sender types.JID
-	fromMe bool
+	raw       *waE2E.Message
+	chat      types.JID
+	sender    types.JID
+	fromMe    bool
+	viaBridge bool
 }
 
 type channelMessages struct {

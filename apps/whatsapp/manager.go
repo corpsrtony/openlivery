@@ -342,6 +342,16 @@ func (m *manager) remoteJIDFor(ctx context.Context, runtime *channelRuntime, cha
 }
 
 func (m *manager) processIncoming(ctx context.Context, runtime *channelRuntime, evt *events.Message) error {
+	// A message sent from the linked phone itself, outside the bridge (i.e. a
+	// staff member replying directly in their own WhatsApp app), means a human
+	// has taken over: pause the AI for that conversation the same way a portal
+	// takeover does. Echoes of our own bridge-sent messages are excluded via
+	// the viaBridge marker set right when we send them.
+	if evt.Info.IsFromMe && !evt.Info.IsGroup && evt.Info.ID != "" {
+		if cached, found := m.cache.get(runtime.channelID, evt.Info.ID); !found || !cached.viaBridge {
+			m.forwardHumanOutbound(ctx, runtime, evt)
+		}
+	}
 	// Remember every direct-chat message (own ones included) so later quotes
 	// and reactions can address it faithfully, even in anonymous @lid chats.
 	if !evt.Info.IsGroup && evt.Info.ID != "" {
@@ -412,6 +422,25 @@ func (m *manager) processIncoming(ctx context.Context, runtime *channelRuntime, 
 	return nil
 }
 
+// forwardHumanOutbound reports a message a staff member typed directly on the
+// linked phone (never touched the API/panel) so the backend can pause the AI
+// for that conversation and log the reply, the same as a portal takeover.
+func (m *manager) forwardHumanOutbound(ctx context.Context, runtime *channelRuntime, evt *events.Message) {
+	switch evt.Info.Chat.Server {
+	case types.DefaultUserServer, types.HiddenUserServer:
+	default:
+		return
+	}
+	body := map[string]any{
+		"remote_jid":          m.remoteJIDFor(ctx, runtime, evt.Info.Chat),
+		"external_message_id": evt.Info.ID,
+		"text":                incomingText(evt.Message),
+	}
+	if err := m.api.call(ctx, http.MethodPost, "/channels/"+runtime.channelID+"/human-outbound", body, nil, 0); err != nil {
+		m.log.Errorf("channel %s: could not report a direct human reply: %v", runtime.channelID, err)
+	}
+}
+
 func (m *manager) sendMessage(ctx context.Context, channelID, remoteJID, text string, media *outboundMedia, quoteExternalID string) (string, error) {
 	runtime := m.runtime(channelID)
 	if runtime == nil || runtime.stopped() {
@@ -439,7 +468,7 @@ func (m *manager) sendMessage(ctx context.Context, channelID, remoteJID, text st
 		return "", err
 	}
 	if ownJID := runtime.client.Store.ID; ownJID != nil {
-		m.cache.put(channelID, sent.ID, cachedMessage{raw: message, chat: jid, sender: *ownJID, fromMe: true})
+		m.cache.put(channelID, sent.ID, cachedMessage{raw: message, chat: jid, sender: *ownJID, fromMe: true, viaBridge: true})
 	}
 	// Audio messages have no caption on WhatsApp; deliver it as a follow-up text.
 	if media != nil && media.kind == "audio" && text != "" {

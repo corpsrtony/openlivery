@@ -768,6 +768,12 @@ class WhatsAppConnectRequest(BaseModel):
     phone_number: str | None = Field(default=None, pattern=r"^[0-9]{6,20}$")
 
 
+class WhatsAppHumanOutbound(BaseModel):
+    remote_jid: str
+    external_message_id: str = ""
+    text: str = ""
+
+
 class WhatsAppInternalAuth(BaseModel):
     auth_state: dict
 

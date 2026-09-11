@@ -17,6 +17,7 @@ from ..schemas import (
     WhatsAppChannelOut,
     WhatsAppChannelUpdate,
     WhatsAppConnectRequest,
+    WhatsAppHumanOutbound,
     WhatsAppInbound,
     WhatsAppInboundReaction,
     WhatsAppInboundResult,
@@ -25,6 +26,7 @@ from ..schemas import (
     WhatsAppOutboundConfirm,
 )
 from ..security import decrypt_secret, encrypt_secret
+from ..services.conversation_state import set_mode
 from ..services.whatsapp import bridge_command
 from ..services.whatsapp_inbound import InboundMessage, process_inbound
 
@@ -220,6 +222,44 @@ def update_status(channel_id: uuid.UUID, payload: WhatsAppInternalStatus, db: Se
         channel.last_connected_at = now_utc()
         channel.is_enabled = True
     channel.updated_at = now_utc()
+    db.commit()
+
+
+@internal_router.post(
+    "/channels/{channel_id}/human-outbound",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(_require_bridge)],
+)
+def human_outbound(channel_id: uuid.UUID, payload: WhatsAppHumanOutbound, db: Session = Depends(get_db)):
+    """A staff member replied directly from the linked phone (not through the
+    panel or the API): pause the AI for that conversation, same as a portal
+    takeover, and log the reply so it shows up in the thread."""
+    channel = _internal_channel(db, channel_id)
+    conversation = db.scalar(
+        select(Conversation)
+        .where(
+            Conversation.whatsapp_channel_id == channel.id,
+            Conversation.external_chat_id == payload.remote_jid,
+            Conversation.status != "resolved",
+        )
+        .order_by(Conversation.created_at.desc())
+        .limit(1)
+    )
+    if not conversation:
+        return
+    set_mode(db, conversation, "human", actor="WhatsApp")
+    if payload.text.strip():
+        db.add(
+            Message(
+                conversation_id=conversation.id,
+                role="assistant",
+                content=payload.text.strip(),
+                sender_type="human",
+                sender_name="WhatsApp",
+                external_message_id=payload.external_message_id or None,
+            )
+        )
+    conversation.updated_at = now_utc()
     db.commit()
 
 
