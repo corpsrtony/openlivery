@@ -7,7 +7,7 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..models import Agency, User
 from ..ratelimit import login_rate_limit
-from ..schemas import LoginRequest, RegisterRequest, UserOut
+from ..schemas import LoginRequest, RegisterRequest, UpdateAccountRequest, UserOut
 from ..security import create_access_token, hash_password, verify_password
 from ..slugs import unique_slug
 
@@ -91,4 +91,24 @@ def logout(response: Response):
 
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
+    return user
+
+
+@router.put("/me", response_model=UserOut)
+def update_account(payload: UpdateAccountRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Self-service: change your own name, email and/or password. Requires
+    the current password to confirm identity, even when only the name changes."""
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Incorrect current password")
+    if payload.email:
+        email = payload.email.lower()
+        if email != user.email and db.scalar(select(User).where(User.email == email)):
+            raise HTTPException(status_code=409, detail="A user with that email already exists")
+        user.email = email
+    if payload.name:
+        user.name = payload.name.strip()
+    if payload.new_password:
+        user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    db.refresh(user)
     return user

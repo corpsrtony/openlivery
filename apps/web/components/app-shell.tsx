@@ -112,8 +112,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-foot">
-            <div className="user-avatar">{user.name.slice(0, 1).toUpperCase()}</div>
-            <div className="user-meta"><strong>{user.name}</strong><span>{user.email}</span></div>
+            <Link href="/account" className="user-avatar" onClick={() => setMobileOpen(false)}>{user.name.slice(0, 1).toUpperCase()}</Link>
+            <Link href="/account" className="user-meta" onClick={() => setMobileOpen(false)}><strong>{user.name}</strong><span>{user.email}</span></Link>
             <button className="icon-button inverse" onClick={logout} title={t("shell.logout")}><LogOut size={17} /></button>
           </div>
           <LanguageSwitcher />

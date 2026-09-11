@@ -20,6 +20,13 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class UpdateAccountRequest(BaseModel):
+    current_password: str
+    name: str | None = Field(default=None, min_length=2, max_length=160)
+    email: EmailStr | None = None
+    new_password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
 class AgencyOut(ORMModel):
     id: uuid.UUID
     name: str
