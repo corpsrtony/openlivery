@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     # over are never closed automatically: only that person decides. 0 disables.
     auto_resolve_after_hours: float = 24.0
 
+    # A conversation a person took over (portal takeover, or replying directly
+    # from the linked WhatsApp phone) is handed back to the AI automatically
+    # after this many hours with no further message from anyone. 0 disables.
+    auto_return_to_ai_after_hours: float = 1.0
+
     # Push notifications for the mobile app. "none" (the default) sends nothing
     # and needs no account with anyone; "webhook" POSTs each event to
     # push_webhook_url so you can route it through whatever you already use.

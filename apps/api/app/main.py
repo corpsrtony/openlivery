@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import new_session
-from .services.conversation_state import resolve_idle_ai_conversations
+from .services.conversation_state import resolve_idle_ai_conversations, return_idle_human_conversations
 from .routers import (
     agency,
     agent_tools,
@@ -39,7 +39,8 @@ AUTO_RESOLVE_SWEEP_SECONDS = 15 * 60
 
 
 async def _auto_resolve_loop() -> None:
-    """Close idle AI conversations on a timer, for as long as the app runs."""
+    """Close idle AI conversations, and hand idle human-held ones back to the
+    AI, on a timer, for as long as the app runs."""
     while True:
         await asyncio.sleep(AUTO_RESOLVE_SWEEP_SECONDS)
         try:
@@ -49,13 +50,21 @@ async def _auto_resolve_loop() -> None:
                 logger.info("Auto-resolved %d idle AI conversation(s)", closed)
         except Exception:  # noqa: BLE001 - a failed sweep must not stop the next one
             logger.exception("Auto-resolve sweep failed")
+        try:
+            with new_session() as db:
+                returned = return_idle_human_conversations(db, hours=get_settings().auto_return_to_ai_after_hours)
+            if returned:
+                logger.info("Returned %d idle human-held conversation(s) to the AI", returned)
+        except Exception:  # noqa: BLE001 - a failed sweep must not stop the next one
+            logger.exception("Auto-return-to-AI sweep failed")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     from .services.social_worker import start_worker, stop_worker
     start_worker()
-    sweeper = asyncio.create_task(_auto_resolve_loop()) if settings.auto_resolve_after_hours > 0 else None
+    needs_sweep = settings.auto_resolve_after_hours > 0 or settings.auto_return_to_ai_after_hours > 0
+    sweeper = asyncio.create_task(_auto_resolve_loop()) if needs_sweep else None
     try:
         yield
     finally:

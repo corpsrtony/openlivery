@@ -38,6 +38,7 @@ _ACTIVITY_TEXT = {
     "taken_over": "{actor} took over the conversation",
     "returned_to_ai": "{actor} returned the conversation to the AI",
     "auto_resolved": "Resolved automatically after {hours} h without activity",
+    "auto_returned_to_ai": "Returned to the AI automatically after {hours} h without activity",
     "self_assigned": "{actor} is now handling the conversation",
     "assigned": "{actor} assigned the conversation to {assignee}",
     "transferred": "{actor} transferred the conversation to {assignee}",
@@ -275,3 +276,38 @@ def resolve_idle_ai_conversations(db: Session, *, hours: float, now: datetime | 
 def exchanged_only(query):
     """Restrict a Message query to what was exchanged with the contact."""
     return query.where(Message.kind == "message")
+
+
+def return_idle_human_conversations(db: Session, *, hours: float, now: datetime | None = None) -> int:
+    """Hand open human-held conversations back to the AI after ``hours`` idle.
+
+    Idle means no exchanged message from either side since the takeover, so
+    a person who took over and then went quiet doesn't leave the contact
+    stuck waiting forever. A person who is actively answering resets the
+    clock on their own, since every reply is a new message.
+    """
+    if hours <= 0:
+        return 0
+    cutoff = (now or now_utc()) - timedelta(hours=hours)
+    last_message_at = (
+        select(func.max(Message.created_at))
+        .where(Message.conversation_id == Conversation.id, Message.kind == "message")
+        .correlate(Conversation)
+        .scalar_subquery()
+    )
+    idle = db.scalars(
+        select(Conversation).where(
+            Conversation.status == "open",
+            Conversation.mode == "human",
+            func.coalesce(last_message_at, Conversation.taken_over_at, Conversation.created_at) < cutoff,
+        )
+    ).all()
+    shown = int(hours) if float(hours).is_integer() else hours
+    for conversation in idle:
+        conversation.mode = "ai"
+        conversation.assignee_id = None
+        conversation.assigned_at = None
+        record_activity(db, conversation, "auto_returned_to_ai", details={"hours": shown})
+    if idle:
+        db.commit()
+    return len(idle)

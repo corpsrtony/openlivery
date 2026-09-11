@@ -431,13 +431,26 @@ func (m *manager) forwardHumanOutbound(ctx context.Context, runtime *channelRunt
 	default:
 		return
 	}
+	text := incomingText(evt.Message)
 	body := map[string]any{
 		"remote_jid":          m.remoteJIDFor(ctx, runtime, evt.Info.Chat),
 		"external_message_id": evt.Info.ID,
-		"text":                incomingText(evt.Message),
+		"text":                text,
 	}
 	if err := m.api.call(ctx, http.MethodPost, "/channels/"+runtime.channelID+"/human-outbound", body, nil, 0); err != nil {
 		m.log.Errorf("channel %s: could not report a direct human reply: %v", runtime.channelID, err)
+		return
+	}
+	// The "/ia" control word hands the conversation back to the AI; delete it
+	// from the chat afterwards so the customer doesn't keep it as a literal
+	// instruction in the thread (WhatsApp still shows a brief "deleted" notice
+	// in its place, since there is no way to send it without it landing in
+	// the chat at all).
+	if strings.TrimSpace(strings.ToLower(text)) == "/ia" {
+		revoke := runtime.client.BuildRevoke(evt.Info.Chat, types.EmptyJID, evt.Info.ID)
+		if _, err := runtime.client.SendMessage(ctx, evt.Info.Chat, revoke); err != nil {
+			m.log.Errorf("channel %s: could not delete the /ia command message: %v", runtime.channelID, err)
+		}
 	}
 }
 
