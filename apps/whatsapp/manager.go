@@ -237,7 +237,7 @@ func (m *manager) pumpPairingCode(runtime *channelRuntime, qrChan <-chan whatsme
 				continue
 			}
 			requested = true
-			code, err := runtime.client.PairPhone(ctx, phoneNumber, true, whatsmeow.PairClientChrome, "OpenLivery (Chrome)")
+			code, err := runtime.client.PairPhone(ctx, phoneNumber, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
 			if err != nil {
 				m.log.Errorf("channel %s: could not request a pairing code: %v", runtime.channelID, err)
 				m.statusOrLog(ctx, runtime.channelID, "error", map[string]any{"error": truncate("Could not generate a pairing code: "+err.Error(), 500)})
